@@ -11,6 +11,17 @@ DATE_FORMAT = "%d.%m.%Y"
 COURSES = {}
 
 
+def course_wrap(key: str):
+    """ Return courses from COURSES object or empty list on key error """
+
+    try:
+        courses = COURSES[key]
+    except KeyError as e:
+        courses = []
+
+    return courses
+
+
 class CourseTime:
     def __init__(self, day, time, place, day_name):
         self.day = day
@@ -69,7 +80,7 @@ class DateDrawer:
         curses.endwin()
 
     def draw_loop(self):
-        self.draw_week()
+        self.draw_month()
         while True:
             c = self.window.getch()
             if c == ord('q'):
@@ -91,11 +102,7 @@ class DateDrawer:
     def draw_day(self):
 
         day_str = generate_dates("now")[0]
-
-        try:
-            courses = COURSES[day_str]
-        except KeyError as e:
-            courses = []
+        courses = course_wrap(day_str)
 
         self.draw_string(day_str)
         self.current_y = 2
@@ -132,10 +139,7 @@ class DateDrawer:
             self.current_x = row_len * i
             self.draw_string(f"  {date[:6]}")
             self.current_y = 4
-            try:
-                courses = COURSES[date]
-            except KeyError as e:
-                courses = []
+            courses = course_wrap(date)
             for course in courses:
                 self.draw_string(course.time.time, row_text_len)
                 self.current_y += 1
@@ -147,10 +151,48 @@ class DateDrawer:
                 self.current_y += 2
 
         self.window.refresh()
-        pass
 
     def draw_month(self):
-        pass
+        row_len = 20
+        row_text_len = row_len - 2
+        month_dates = generate_dates("month")
+
+        # TODO: show the last days of prev month and first days of next month
+        #       if the first day is not monday and/or last day is not friday-sunday
+        # TODO: make dates selectable so we can show the single date info
+        # TODO: make a single lecture selectable so we can show the full info
+        # TODO: do we need to support weekends?
+
+        self.draw_string(
+            f"{month_dates[0][0]} - {month_dates[len(month_dates) -1][0]}")
+
+        self.current_y = 2
+        max_lines_week = 0
+        for _date in month_dates:
+            date, week_day = _date
+            if week_day == 5 or week_day == 6:  # Skip saturday and sunday
+                continue
+
+            self.current_x = row_len * week_day
+            self.draw_string(date[:6])
+            courses = course_wrap(date)
+            cousers_len = len(courses)
+            if cousers_len > max_lines_week:
+                max_lines_week = cousers_len
+
+            for course in courses:
+                self.current_y += 1
+                self.draw_string(course.time.time, row_text_len)
+                self.current_y += 1
+                self.draw_string(course.name, row_text_len)
+
+            self.current_y -= (cousers_len * 2)
+
+            if week_day == 4:  # Move to next week after friday
+                self.current_y += (max_lines_week * 2) + 2
+                max_lines_week = 0
+
+        self.window.refresh()
 
 
 def parse_lukkari_file(file_path: str):
@@ -205,8 +247,13 @@ def generate_dates(keyword: str = None) -> list:
     """
     Generate dates based on keyword
     today / now / None: only todays date
+
     week: all dates belonging to the week we are currently living
+
     month: all dates belonging to the month we are currently living
+
+    Note that month returns tuple with (date, weekday)
+
     TODO: date-str: courses based on date-str
     """
 
@@ -237,14 +284,14 @@ def generate_dates(keyword: str = None) -> list:
         month_max = calendar.monthrange(current_day.year, current_day.month)[1]
 
         # Get today, and days before
-        for i in range(month_day, 1, -1):
+        for i in range(month_day - 1, 0, -1):
             day = current_day + datetime.timedelta(-i)
-            dates.append(day.strftime(DATE_FORMAT))
+            dates.append((day.strftime(DATE_FORMAT), day.weekday()))
 
         # Get days after
         for i in range((month_max + 1) - month_day):
             day = current_day + datetime.timedelta(i)
-            dates.append(day.strftime(DATE_FORMAT))
+            dates.append((day.strftime(DATE_FORMAT), day.weekday()))
 
     else:
         print(f"Invalid date keyword: {keyword}")
@@ -282,8 +329,3 @@ if __name__ == '__main__':
 
     drawer = DateDrawer()
     drawer.draw_loop()
-
-    # week_dates = generate_dates("week")
-    # for i, date in enumerate(week_dates, 1):
-    #     current_x = 30 * i
-    #     print(f"        {date[:6]}")
