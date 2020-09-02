@@ -69,7 +69,7 @@ class DateDrawer:
         curses.endwin()
 
     def draw_loop(self):
-        self.draw_day()
+        self.draw_week()
         while True:
             c = self.window.getch()
             if c == ord('q'):
@@ -98,7 +98,7 @@ class DateDrawer:
             courses = []
 
         self.draw_string(day_str)
-        self.current_y += 2
+        self.current_y = 2
 
         if len(courses) == 0:
             self.draw_string("No lectures today!")
@@ -117,6 +117,36 @@ class DateDrawer:
         self.window.refresh()
 
     def draw_week(self):
+        row_len = 20
+        row_text_len = row_len - 2
+        week_dates = generate_dates("week")
+
+        # TODO: make dates selectable so we can show the single date info
+        # TODO: make a single lecture selectable so we can show the full info
+        # TODO: do we need to support weekends?
+
+        self.draw_string(f"{week_dates[0]} - {week_dates[4]}")
+
+        for i, date in enumerate(week_dates[:5], 0):
+            self.current_y = 2
+            self.current_x = row_len * i
+            self.draw_string(f"  {date[:6]}")
+            self.current_y = 4
+            try:
+                courses = COURSES[date]
+            except KeyError as e:
+                courses = []
+            for course in courses:
+                self.draw_string(course.time.time, row_text_len)
+                self.current_y += 1
+                self.draw_string(course.name, row_text_len)
+                self.current_y += 1
+                self.draw_string(course.cid, row_text_len)
+                self.current_y += 1
+                self.draw_string(course.time.place, row_text_len)
+                self.current_y += 2
+
+        self.window.refresh()
         pass
 
     def draw_month(self):
@@ -252,3 +282,8 @@ if __name__ == '__main__':
 
     drawer = DateDrawer()
     drawer.draw_loop()
+
+    # week_dates = generate_dates("week")
+    # for i, date in enumerate(week_dates, 1):
+    #     current_x = 30 * i
+    #     print(f"        {date[:6]}")
