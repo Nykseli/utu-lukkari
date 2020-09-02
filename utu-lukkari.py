@@ -80,12 +80,18 @@ class DateDrawer:
         curses.endwin()
 
     def draw_loop(self):
-        self.draw_month()
+        self.draw_day()
         while True:
             c = self.window.getch()
             if c == ord('q'):
                 self.destroy()
                 break
+            elif c == ord('b'):
+                self.draw_day()
+            elif c == ord('n'):
+                self.draw_week()
+            elif c == ord('m'):
+                self.draw_month()
 
     def draw_string(self, string: str, max_len: int = -1):
         """Draw a string to the current x, y location"""
@@ -100,10 +106,13 @@ class DateDrawer:
         pass
 
     def draw_day(self):
+        self.window.clear()
 
         day_str = generate_dates("now")[0]
         courses = course_wrap(day_str)
 
+        self.current_y = 0
+        self.current_x = 0
         self.draw_string(day_str)
         self.current_y = 2
 
@@ -124,6 +133,8 @@ class DateDrawer:
         self.window.refresh()
 
     def draw_week(self):
+        self.window.clear()
+
         row_len = 20
         row_text_len = row_len - 2
         week_dates = generate_dates("week")
@@ -132,6 +143,8 @@ class DateDrawer:
         # TODO: make a single lecture selectable so we can show the full info
         # TODO: do we need to support weekends?
 
+        self.current_y = 0
+        self.current_x = 0
         self.draw_string(f"{week_dates[0]} - {week_dates[4]}")
 
         for i, date in enumerate(week_dates[:5], 0):
@@ -153,6 +166,8 @@ class DateDrawer:
         self.window.refresh()
 
     def draw_month(self):
+        self.window.clear()
+
         row_len = 20
         row_text_len = row_len - 2
         month_dates = generate_dates("month")
@@ -163,6 +178,8 @@ class DateDrawer:
         # TODO: make a single lecture selectable so we can show the full info
         # TODO: do we need to support weekends?
 
+        self.current_y = 0
+        self.current_x = 0
         self.draw_string(
             f"{month_dates[0][0]} - {month_dates[len(month_dates) -1][0]}")
 
