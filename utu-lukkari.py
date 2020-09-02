@@ -10,6 +10,9 @@ DATE_FORMAT = "%d.%m.%Y"
 
 COURSES = {}
 
+# datetime object for keeping track of the current date
+CURRENT_DAY = datetime.datetime.now()
+
 
 def course_wrap(key: str):
     """ Return courses from COURSES object or empty list on key error """
@@ -20,6 +23,76 @@ def course_wrap(key: str):
         courses = []
 
     return courses
+
+
+def next_day(skip_weekend: bool = True):
+    """ Set the CURRENT_DAY global to the next day """
+    global CURRENT_DAY
+
+    CURRENT_DAY += datetime.timedelta(1)
+    week_day = CURRENT_DAY.weekday()
+
+    if skip_weekend:
+        if week_day == 5:  # Skip the Saturday
+            CURRENT_DAY += datetime.timedelta(2)
+        elif week_day == 6:  # Skip the Sunday
+            CURRENT_DAY += datetime.timedelta(1)
+
+
+def prev_day(skip_weekend: bool = True):
+    """ Set the CURRENT_DAY global to the previous day """
+    global CURRENT_DAY
+
+    CURRENT_DAY -= datetime.timedelta(1)
+    week_day = CURRENT_DAY.weekday()
+
+    if skip_weekend:
+        if week_day == 5:  # Skip the Saturday
+            CURRENT_DAY -= datetime.timedelta(2)
+        elif week_day == 6:  # Skip the Sunday
+            CURRENT_DAY -= datetime.timedelta(1)
+
+
+def next_week():
+    """ Set the current day to the next weeks monday """
+    global CURRENT_DAY
+
+    week_day = CURRENT_DAY.weekday()
+    CURRENT_DAY += datetime.timedelta(7 - week_day)
+
+
+def prev_week():
+    """ Set the current day to the previous weeks monday """
+    global CURRENT_DAY
+
+    week_day = CURRENT_DAY.weekday()
+    CURRENT_DAY -= datetime.timedelta(week_day + 1)
+
+
+def next_month():
+    """ Set the current day to the next months first day """
+    global CURRENT_DAY
+
+    year = CURRENT_DAY.year
+    month = CURRENT_DAY.month + 1
+    if month > 12:
+        month = 1
+        year += 1
+
+    CURRENT_DAY = datetime.datetime(year, month, 1)
+
+
+def prev_month():
+    """ Set the current day to the previous months first day """
+    global CURRENT_DAY
+
+    year = CURRENT_DAY.year
+    month = CURRENT_DAY.month - 1
+    if month < 1:
+        month = 12
+        year -= 1
+
+    CURRENT_DAY = datetime.datetime(year, month, 1)
 
 
 class CourseTime:
@@ -161,6 +234,9 @@ class DateDrawer:
             if self.draw_link_x != -1:
                 day_str = self.draw_link_list[self.draw_link_y][self.draw_link_x]
                 self.draw_mode = "day"
+        else:
+            # Don't do anything if there is no match
+            return
 
         # Skip empties
         # If every item is -1, we are going to have a bad time
@@ -184,16 +260,36 @@ class DateDrawer:
                 self.destroy()
                 break
             elif c == ord('b'):
-                self.reset_links()
-                self.draw_day()
+                self.draw_mode = "day"
             elif c == ord('n'):
-                self.reset_links()
-                self.draw_week()
+                self.draw_mode = "week"
             elif c == ord('m'):
-                self.reset_links()
-                self.draw_month()
+                self.draw_mode = "month"
+            elif c == ord('p'):
+                if self.draw_mode == "day":
+                    next_day()
+                elif self.draw_mode == "week":
+                    next_week()
+                elif self.draw_mode == "month":
+                    next_month()
+            elif c == ord('o'):
+                if self.draw_mode == "day":
+                    prev_day()
+                elif self.draw_mode == "week":
+                    prev_week()
+                elif self.draw_mode == "month":
+                    prev_month()
             else:
                 self.handle_movement(c)
+                continue
+
+            self.reset_links()
+            if self.draw_mode == "week":
+                self.draw_week()
+            elif self.draw_mode == "month":
+                self.draw_month()
+            elif self.draw_mode == "day":
+                self.draw_day()
 
     def draw_string(self, string: str, max_len: int = -1):
         """Draw a string to the current x, y location"""
@@ -426,39 +522,38 @@ def generate_dates(keyword: str = None) -> list:
     """
 
     dates = []
-    current_day = datetime.datetime.today()
     if not keyword:
-        dates.append(current_day.strftime(DATE_FORMAT))
+        dates.append(CURRENT_DAY.strftime(DATE_FORMAT))
     elif keyword == "today" or keyword == "now":
-        dates.append(current_day.strftime(DATE_FORMAT))
+        dates.append(CURRENT_DAY.strftime(DATE_FORMAT))
     elif keyword == "week":
         # 0 is monday, 6 is sunday
         weekday = calendar.weekday(
-            current_day.year, current_day.month, current_day.day)
+            CURRENT_DAY.year, CURRENT_DAY.month, CURRENT_DAY.day)
 
         # Get today, and days before
         for i in range(weekday, 0, -1):
-            day = current_day + datetime.timedelta(-i)
+            day = CURRENT_DAY + datetime.timedelta(-i)
             dates.append(day.strftime(DATE_FORMAT))
 
         # Get days after
         for i in range(7 - weekday):
-            day = current_day + datetime.timedelta(i)
+            day = CURRENT_DAY + datetime.timedelta(i)
             dates.append(day.strftime(DATE_FORMAT))
 
     elif keyword == "month":
         # Month days start from 1
-        month_day = current_day.day
-        month_max = calendar.monthrange(current_day.year, current_day.month)[1]
+        month_day = CURRENT_DAY.day
+        month_max = calendar.monthrange(CURRENT_DAY.year, CURRENT_DAY.month)[1]
 
         # Get today, and days before
         for i in range(month_day - 1, 0, -1):
-            day = current_day + datetime.timedelta(-i)
+            day = CURRENT_DAY + datetime.timedelta(-i)
             dates.append((day.strftime(DATE_FORMAT), day.weekday()))
 
         # Get days after
         for i in range((month_max + 1) - month_day):
-            day = current_day + datetime.timedelta(i)
+            day = CURRENT_DAY + datetime.timedelta(i)
             dates.append((day.strftime(DATE_FORMAT), day.weekday()))
 
     else:
