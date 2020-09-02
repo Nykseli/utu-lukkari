@@ -48,9 +48,9 @@ def prev_day(skip_weekend: bool = True):
 
     if skip_weekend:
         if week_day == 5:  # Skip the Saturday
-            CURRENT_DAY -= datetime.timedelta(2)
-        elif week_day == 6:  # Skip the Sunday
             CURRENT_DAY -= datetime.timedelta(1)
+        elif week_day == 6:  # Skip the Sunday
+            CURRENT_DAY -= datetime.timedelta(2)
 
 
 def next_week():
