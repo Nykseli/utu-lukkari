@@ -3,11 +3,15 @@
 import sys
 import calendar
 import datetime
+import curses
+import signal
 
 DATE_FORMAT = "%d.%m.%Y"
 
+COURSES = {}
 
-class KurssiTunti:
+
+class CourseTime:
     def __init__(self, day, time, place, day_name):
         self.day = day
         self.time = time
@@ -18,43 +22,118 @@ class KurssiTunti:
         return f"{self.day_name} {self.day} {self.time} {self.place}"
 
     @staticmethod
-    def str_to_tunti(string: str) -> object:
+    def str_to_time(string: str) -> object:
         parts = string.split()
         day_name = parts[0]
         day = parts[1]
         time = parts[2]
         place = " ".join(parts[3:])
 
-        return KurssiTunti(day, time, place, day_name)
+        return CourseTime(day, time, place, day_name)
 
 
-class Kurssi:
+class Course:
+    def __init__(self, name: str, cid: str, time: str):
+        self.name = name
+        self.cid = cid
+        self.time = CourseTime.str_to_time(time)
+
+    def __str__(self):
+        return f"{self.name} {self.cid} {str(self.time)}"
+
+
+class DateDrawer:
+    """
+    Ncursers wrapper that handles the drawing of the 'Lecture calendar'
+    """
+
+    # Position inside of the ncurses window (self.window)
+    current_x = 0
+    current_y = 0
+
     def __init__(self):
-        self.nimi = ""
-        self.tunnus = ""
-        self.tunnit = []
+        # Start curses mode
+        self.main_win = curses.initscr()
+        # Line buffering disabled, Pass on everty thing to me
+        curses.cbreak()
+        # Don't show keypresses
+        curses.noecho()
+        # Hide cursor
+        curses.curs_set(0)
+        # All those F and arrow keys
+        self.main_win.keypad(True)
+        # The window we draw our calendar
+        self.window = curses.newwin(80, 120, 1, 2)
 
-    def add_nimi(self, nimi: str):
-        self.nimi = nimi
+    def destroy(self):
+        curses.endwin()
 
-    def add_tunnus(self, tunnus: str):
-        self.tunnus = tunnus
+    def draw_loop(self):
+        self.draw_day()
+        while True:
+            c = self.window.getch()
+            if c == ord('q'):
+                self.destroy()
+                break
 
-    def add_tunti(self, tunti: str):
-        kurssi_tunti = KurssiTunti.str_to_tunti(tunti)
-        self.tunnit.append(kurssi_tunti)
+    def draw_string(self, string: str, max_len: int = -1):
+        """Draw a string to the current x, y location"""
+        if max_len == -1:
+            self.window.addstr(
+                self.current_y, self.current_x, string)
+        else:
+            self.window.addnstr(
+                self.current_y, self.current_x, string, max_len)
+
+    def draw_single_lecture(self):
+        pass
+
+    def draw_day(self):
+
+        day_str = generate_dates("now")[0]
+
+        try:
+            courses = COURSES[day_str]
+        except KeyError as e:
+            courses = []
+
+        self.draw_string(day_str)
+        self.current_y += 2
+
+        if len(courses) == 0:
+            self.draw_string("No lectures today!")
+            self.window.refresh()
+            return
+
+        for course in courses:
+            self.draw_string(
+                f"{course.time.time}    {course.name} {course.cid}", 70)
+            self.current_y += 1
+            self.current_x = 15
+            self.draw_string(course.time.place)
+            self.current_x = 0
+            self.current_y += 2
+
+        self.window.refresh()
+
+    def draw_week(self):
+        pass
+
+    def draw_month(self):
+        pass
 
 
-def parse_lukkari_file(file_path: str) -> list:
-    kurssit = []
+def parse_lukkari_file(file_path: str):
+    global COURSES
 
     file_lines = []
     with open(file_path) as lukkari_file:
         file_lines = lukkari_file.readlines()
 
     tunnus_found = False
+    tunnus = None
     nimi_found = False
-    kurssi = Kurssi()
+    nimi = None
 
     for line in file_lines:
         line = line.strip()
@@ -63,9 +142,6 @@ def parse_lukkari_file(file_path: str) -> list:
         if len(line) == 0:
             nimi_found = False
             tunnus_found = False
-            if kurssi.nimi:
-                kurssit.append(kurssi)
-            kurssi = Kurssi()
             continue
 
         if line[0] == '#':  # skip comment lines
@@ -73,25 +149,26 @@ def parse_lukkari_file(file_path: str) -> list:
 
         # Tunnus is always the first
         if not tunnus_found:
-            kurssi.add_tunnus(line)
+            tunnus = line
             tunnus_found = True
             continue
 
         # Nimi is always the second
         if not nimi_found:
-            kurssi.add_nimi(line)
+            nimi = line
             nimi_found = True
             continue
 
         # The rest of the lines are the course hours
-        kurssi.add_tunti(line)
+        course = Course(nimi, tunnus, line)
+        if not course.time.day in COURSES:
+            COURSES[course.time.day] = [course]
+        else:
+            COURSES[course.time.day].append(course)
 
-    # After reading lines make sure that the last entry is added
-    # if the file doesn't end with a empty line
-    if kurssi.nimi and kurssi.tunnus:
-        kurssit.append(kurssi)
-
-    return kurssit
+    # Sort the course list to make sure the early lectures are first
+    for key in COURSES.keys():
+        COURSES[key].sort(key=lambda course: course.time.time)
 
 
 def generate_dates(keyword: str = None) -> list:
@@ -100,6 +177,7 @@ def generate_dates(keyword: str = None) -> list:
     today / now / None: only todays date
     week: all dates belonging to the week we are currently living
     month: all dates belonging to the month we are currently living
+    TODO: date-str: courses based on date-str
     """
 
     dates = []
@@ -159,5 +237,18 @@ def main():
                     print(f"Aika: {tunti}\n")
 
 
+def interrupt_handler(signal_received, frame):
+    """
+    Destroy drawer window so the terminal doesn't get all wonky
+    """
+
+    drawer.destroy()
+    sys.exit(0)
+
+
 if __name__ == '__main__':
-    main()
+    signal.signal(signal.SIGINT, interrupt_handler)
+    parse_lukkari_file("lukkari.txt")
+
+    drawer = DateDrawer()
+    drawer.draw_loop()
