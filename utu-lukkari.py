@@ -113,21 +113,66 @@ class DateDrawer:
 
         day_str = None
         if c == ord('l') or c == curses.KEY_RIGHT:
+            if self.draw_link_y == -1:
+                self.draw_link_y = 0
             val = self.draw_link_x
-            self.draw_link_x = (val + 1) % list_len
+            ylen = len(self.draw_link_list[self.draw_link_y])
+            self.draw_link_x = (val + 1) % ylen
         elif c == ord('h') or c == curses.KEY_LEFT:
+            if self.draw_link_y == -1:
+                self.draw_link_y = 0
+
+            ylen = len(self.draw_link_list[self.draw_link_y])
             if self.draw_link_x == -1:
-                self.draw_link_x = list_len - 1
+                self.draw_link_x = ylen - 1
             else:
                 val = self.draw_link_x
-                self.draw_link_x = (val + list_len - 1) % list_len
+                valy = self.draw_link_y
+                self.draw_link_x = (val + ylen - 1) % ylen
+                # Skip empties when going to left, rest are handled after ifs
+                # If every item is -1, we are going to have a bad time
+                while self.draw_link_list[valy][self.draw_link_x] == -1:
+                    val = self.draw_link_x
+                    self.draw_link_x = (val + ylen - 1) % ylen
+
+        elif c == ord('k') or c == curses.KEY_UP:
+            if self.draw_link_x == -1:
+                self.draw_link_x = 0
+
+            if self.draw_link_y == -1:
+                self.draw_link_y = list_len - 1
+            else:
+                val = self.draw_link_y
+                self.draw_link_y = (val + list_len - 1) % list_len
+
+            nxlen = len(self.draw_link_list[self.draw_link_y])
+            if self.draw_link_x >= nxlen:
+                self.draw_link_x = nxlen - 1
+        elif c == ord('j') or c == curses.KEY_DOWN:
+            if self.draw_link_x == -1:
+                self.draw_link_x = 0
+            val = self.draw_link_y
+            self.draw_link_y = (val + 1) % list_len
+
+            nxlen = len(self.draw_link_list[self.draw_link_y])
+            if self.draw_link_x >= nxlen:
+                self.draw_link_x = nxlen - 1
         elif c == ord('\n'):
             if self.draw_link_x != -1:
-                day_str = self.draw_link_list[self.draw_link_x]
+                day_str = self.draw_link_list[self.draw_link_y][self.draw_link_x]
                 self.draw_mode = "day"
+
+        # Skip empties
+        # If every item is -1, we are going to have a bad time
+        ylen = len(self.draw_link_list[self.draw_link_y])
+        while self.draw_link_list[self.draw_link_y][self.draw_link_x] == -1:
+            val = self.draw_link_x
+            self.draw_link_x = (val + 1) % ylen
 
         if self.draw_mode == "week":
             self.draw_week(False)
+        elif self.draw_mode == "month":
+            self.draw_month(False)
         elif self.draw_mode == "day":
             self.draw_day(day_str)
 
@@ -198,7 +243,6 @@ class DateDrawer:
         row_text_len = row_len - 2
         week_dates = generate_dates("week")
 
-        # TODO: make dates selectable so we can show the single date info
         # TODO: make a single lecture selectable so we can show the full info
         # TODO: show week column by column if the screen is too small
         # TODO: do we need to support weekends?
@@ -213,12 +257,16 @@ class DateDrawer:
 
             # Take the full date so we can load it later
             if init:
-                self.draw_link_list.append(date)
+                if len(self.draw_link_list) == 0:
+                    self.draw_link_list.append([date])
+                else:
+                    self.draw_link_list[0].append(date)
+
                 highlight = False
 
             if self.draw_link_x == -1:
                 highlight = False
-            elif self.draw_link_list[self.draw_link_x] != date:
+            elif self.draw_link_list[0][self.draw_link_x] != date:
                 highlight = False
 
             if highlight:
@@ -241,7 +289,7 @@ class DateDrawer:
 
         self.window.refresh()
 
-    def draw_month(self):
+    def draw_month(self, init: bool = True):
         self.draw_mode = "month"
         self.window.clear()
 
@@ -251,7 +299,6 @@ class DateDrawer:
 
         # TODO: show the last days of prev month and first days of next month
         #       if the first day is not monday and/or last day is not friday-sunday
-        # TODO: make dates selectable so we can show the single date info
         # TODO: make a single lecture selectable so we can show the full info
         # TODO: show month column by column if the screen is too small
         # TODO: do we need to support weekends?
@@ -262,13 +309,39 @@ class DateDrawer:
 
         self.current_y = 2
         max_lines_week = 0
+        # Keep track where to put dates when initializeing draw_link_list
+        draw_date_index = 0
         for _date in month_dates:
             date, week_day = _date
             if week_day == 5 or week_day == 6:  # Skip saturday and sunday
                 continue
+            highlight = True
+
+            if init:
+                if len(self.draw_link_list) - 1 < draw_date_index:
+                    # Add empties to start if week doesn't start on monday
+                    if week_day != 0:
+                        self.draw_link_list.append([-1] * week_day)
+                        self.draw_link_list[draw_date_index].append(date)
+                    else:
+                        self.draw_link_list.append([date])
+                else:
+                    self.draw_link_list[draw_date_index].append(date)
+                highlight = False
+
+            lx = self.draw_link_x
+            ly = self.draw_link_y
+            if lx == -1 or ly == -1:
+                highlight = False
+            elif self.draw_link_list[ly][lx] != date:
+                highlight = False
 
             self.current_x = row_len * week_day
+            if highlight:
+                self.turn_highlight_on()
             self.draw_string(date[:6])
+            if highlight:
+                self.turn_highlight_off()
             courses = course_wrap(date)
             cousers_len = len(courses)
             if cousers_len > max_lines_week:
@@ -285,6 +358,7 @@ class DateDrawer:
             if week_day == 4:  # Move to next week after friday
                 self.current_y += (max_lines_week * 2) + 2
                 max_lines_week = 0
+                draw_date_index += 1
 
         self.window.refresh()
 
