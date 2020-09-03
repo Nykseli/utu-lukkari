@@ -14,6 +14,16 @@ COURSES = {}
 CURRENT_DAY = datetime.datetime.now()
 
 
+# Hardcoded values for testing the "responsiviness" on the smaller screen
+# Should AWLAYS be -1 on production
+# When set to -1 the values come from curses window
+WIN_WIDTH = -1
+WIN_HEIGHT = -1
+
+# DEBUG should always be false in production
+DEBUG = False
+
+
 def course_wrap(key: str):
     """ Return courses from COURSES object or empty list on key error """
 
@@ -140,9 +150,17 @@ class DateDrawer:
     draw_link_y = -1
     draw_link_list = []
 
+    # Column size and amount of text in column in letters
+    column_size = 20
+    column_text_len = column_size - 2
+
+    # Set to True if there is a problem with initializing the program.
+    # If this is true. The draw loop should not be started
+    init_error = False
+
     def __init__(self):
         # Start curses mode
-        curses.initscr()
+        self.root_win = curses.initscr()
         # Line buffering disabled, Pass on everty thing to me
         curses.cbreak()
         # Don't show keypresses
@@ -153,10 +171,32 @@ class DateDrawer:
         curses.start_color()
         # Link color
         curses.init_pair(1, curses.COLOR_BLUE, curses.COLOR_BLACK)
+        # Set the window to be as big as possible
+        if DEBUG and WIN_HEIGHT != -1 and WIN_WIDTH != -1:
+            self.maxy, self.maxx = (WIN_HEIGHT, WIN_WIDTH)
+        else:
+            self.maxy, self.maxx = self.root_win.getmaxyx()
         # The window we draw our calendar
-        self.window = curses.newwin(80, 120, 1, 2)
+        self.window = curses.newwin(self.maxy, self.maxx, 1, 2)
+        # Take the padding into account with maxy and maxx
+        self.maxx -= 2
+        self.maxy -= 1
         # All those F and arrow keys
         self.window.keypad(True)
+        # Calculate the max amount of columns for responsiveness
+        self.max_columns = int(self.maxx / self.column_size)
+        if self.max_columns < 1:
+            self.destroy()
+            self.init_error = True
+            print("Error: Screen is too small for this application")
+            return
+
+        if DEBUG:
+            self.root_win.addnstr(
+                f"my {self.maxy} mx {self.maxx} cols {self.max_columns}",
+                self.maxx
+            )
+            self.root_win.refresh()
 
     def destroy(self):
         curses.endwin()
@@ -322,10 +362,10 @@ class DateDrawer:
 
         for course in courses:
             self.draw_string(
-                f"{course.time.time}    {course.name} {course.cid}", 70)
+                f"{course.time.time}    {course.name} {course.cid}", self.maxx)
             self.current_y += 1
             self.current_x = 15
-            self.draw_string(course.time.place)
+            self.draw_string(course.time.place, self.maxx - self.current_x)
             self.current_x = 0
             self.current_y += 2
 
@@ -335,30 +375,41 @@ class DateDrawer:
         self.draw_mode = "week"
         self.window.clear()
 
-        row_len = 20
-        row_text_len = row_len - 2
-        week_dates = generate_dates("week")
+        week_dates = generate_dates("week")[:5]
 
-        # TODO: make a single lecture selectable so we can show the full info
-        # TODO: show week column by column if the screen is too small
-        # TODO: do we need to support weekends?
-
-        self.reset_xy()
-        self.draw_string(f"{week_dates[0]} - {week_dates[4]}")
-
-        for i, date in enumerate(week_dates[:5], 0):
-            self.current_y = 2
-            self.current_x = row_len * i
-            highlight = True
-
-            # Take the full date so we can load it later
-            if init:
+        # We want all 5 dates to to our draw list regradless of
+        # how many columns we can draw
+        if init:
+            for date in week_dates:
+                # Take the full date so we can load it later
                 if len(self.draw_link_list) == 0:
                     self.draw_link_list.append([date])
                 else:
                     self.draw_link_list[0].append(date)
 
-                highlight = False
+        if self.max_columns < 5:
+            start = self.draw_link_x
+            if start == -1:
+                start = 0
+            else:
+                start -= start % self.max_columns
+            week_dates = week_dates[start:start + self.max_columns]
+
+        # TODO: make a single lecture selectable so we can show the full info
+        # TODO: do we need to support weekends?
+
+        self.reset_xy()
+
+        if self.maxx < 25:
+            self.draw_string(
+                f"{week_dates[0][:6]} - {week_dates[-1][:6]}", self.maxx)
+        else:
+            self.draw_string(f"{week_dates[0]} - {week_dates[-1]}", self.maxx)
+
+        for i, date in enumerate(week_dates, 0):
+            self.current_y = 2
+            self.current_x = self.column_size * i
+            highlight = True
 
             if self.draw_link_x == -1:
                 highlight = False
@@ -374,13 +425,13 @@ class DateDrawer:
             self.current_y = 4
             courses = course_wrap(date)
             for course in courses:
-                self.draw_string(course.time.time, row_text_len)
+                self.draw_string(course.time.time, self.column_text_len)
                 self.current_y += 1
-                self.draw_string(course.name, row_text_len)
+                self.draw_string(course.name, self.column_text_len)
                 self.current_y += 1
-                self.draw_string(course.cid, row_text_len)
+                self.draw_string(course.cid, self.column_text_len)
                 self.current_y += 1
-                self.draw_string(course.time.place, row_text_len)
+                self.draw_string(course.time.place, self.column_text_len)
                 self.current_y += 2
 
         self.window.refresh()
@@ -389,8 +440,6 @@ class DateDrawer:
         self.draw_mode = "month"
         self.window.clear()
 
-        row_len = 20
-        row_text_len = row_len - 2
         month_dates = generate_dates("month")
 
         # TODO: show the last days of prev month and first days of next month
@@ -432,7 +481,7 @@ class DateDrawer:
             elif self.draw_link_list[ly][lx] != date:
                 highlight = False
 
-            self.current_x = row_len * week_day
+            self.current_x = self.column_size * week_day
             if highlight:
                 self.turn_highlight_on()
             self.draw_string(date[:6])
@@ -445,9 +494,9 @@ class DateDrawer:
 
             for course in courses:
                 self.current_y += 1
-                self.draw_string(course.time.time, row_text_len)
+                self.draw_string(course.time.time, self.column_text_len)
                 self.current_y += 1
-                self.draw_string(course.name, row_text_len)
+                self.draw_string(course.name, self.column_text_len)
 
             self.current_y -= (cousers_len * 2)
 
@@ -591,4 +640,7 @@ if __name__ == '__main__':
     parse_lukkari_file("lukkari.txt")
 
     drawer = DateDrawer()
-    drawer.draw_loop()
+    if not drawer.init_error:
+        # TODO: should this be wrapped in try-expect so the window could be
+        #       properly destroyed
+        drawer.draw_loop()
