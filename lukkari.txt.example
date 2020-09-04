@@ -1,0 +1,29 @@
+# This is a comment. Comments are completely ignored
+# Course id is always the first item
+TKO_3104
+# The name is always the second
+Data ja vuorovaikutus
+# Third is the list of the lectures
+# The format is the as in https://opas.peppi.utu.fi/ Teaching
+ti 01.09.2020 10:15-12:00 Etäopetus
+to 03.09.2020 10:15-12:00 Etäopetus
+ti 08.09.2020 10:15-12:00 Etäopetus
+to 10.09.2020 10:15-12:00 Etäopetus
+ti 15.09.2020 10:15-12:00 Etäopetus
+to 17.09.2020 10:15-12:00 Etäopetus
+ti 22.09.2020 10:15-12:00 Etäopetus
+to 24.09.2020 10:15-12:00 Etäopetus
+ti 29.09.2020 10:15-12:00 Etäopetus
+to 01.10.2020 10:15-12:00 Etäopetus
+
+# The courses are separated by empty line(s)
+DTEK0066
+Olio-ohjelmoinnin jatkokurssi
+ti 01.09.2020 10:15-12:00 Etäopetus
+pe 04.09.2020 10:15-12:00 Etäopetus
+ti 08.09.2020 10:15-12:00 Etäopetus
+pe 11.09.2020 10:15-12:00 Etäopetus
+ti 15.09.2020 10:15-12:00 Etäopetus
+pe 18.09.2020 10:15-12:00 Etäopetus
+ti 22.09.2020 10:15-12:00 Etäopetus
+pe 25.09.2020 10:15-12:00 Etäopetus
