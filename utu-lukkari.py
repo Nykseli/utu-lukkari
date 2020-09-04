@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
+import argparse
 import calendar
-import datetime
 import curses
+import datetime
+import os
 import signal
+import sys
 
 DATE_FORMAT = "%d.%m.%Y"
 
@@ -618,19 +620,28 @@ def generate_dates(keyword: str = None) -> list:
     return dates
 
 
-def main():
-    target_days = []
-    if len(sys.argv) == 2:
-        target_days = generate_dates(sys.argv[1])
-    else:
-        target_days = generate_dates()
-    kurssit = parse_lukkari_file("lukkari.txt")
-    for target_day in target_days:
-        for kurssi in kurssit:
-            for tunti in kurssi.tunnit:
-                if target_day == tunti.day:
-                    print(f"Nimi: {kurssi.nimi} ({kurssi.tunnus})")
-                    print(f"Aika: {tunti}\n")
+def get_home_lukkari_path():
+    """
+    Make sure that the lukkari.text file exists
+    and return the absolute path to it
+    """
+
+    home_path = os.path.expanduser("~")
+
+    config_path = f"{home_path}/.config"
+    if not os.path.isdir(config_path):
+        os.mkdir(config_path)
+
+    lukkari_conf_path = f"{config_path}/utu-lukkari"
+    if not os.path.isdir(lukkari_conf_path):
+        os.mkdir(lukkari_conf_path)
+
+    lukkari_conf_lukkari = f"{lukkari_conf_path}/lukkari.txt"
+    if not os.path.isfile(lukkari_conf_lukkari):
+        luk_file = open(lukkari_conf_lukkari, "w")
+        luk_file.close()
+
+    return lukkari_conf_lukkari
 
 
 def interrupt_handler(signal_received, frame):
@@ -642,12 +653,27 @@ def interrupt_handler(signal_received, frame):
     sys.exit(0)
 
 
-if __name__ == '__main__':
+def main():
     signal.signal(signal.SIGINT, interrupt_handler)
-    parse_lukkari_file("lukkari.txt")
+
+    # Always set the program name as the executable name
+    parser = argparse.ArgumentParser(prog=sys.argv[0])
+    parser.add_argument('-p', '--path', default=None,
+                        type=str, help="Path to lukkari file")
+    arguments = parser.parse_args()
+
+    lukkari_path = arguments.path
+    if lukkari_path == None:
+        lukkari_path = get_home_lukkari_path()
+
+    parse_lukkari_file(lukkari_path)
 
     drawer = DateDrawer()
     if not drawer.init_error:
         # TODO: should this be wrapped in try-expect so the window could be
         #       properly destroyed
         drawer.draw_loop()
+
+
+if __name__ == '__main__':
+    main()
