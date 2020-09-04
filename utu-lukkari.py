@@ -185,7 +185,7 @@ class DateDrawer:
         self.window.keypad(True)
         # Calculate the max amount of columns for responsiveness
         self.max_columns = int(self.maxx / self.column_size)
-        if self.max_columns < 1:
+        if self.max_columns < 1 or self.maxy < 30:
             self.destroy()
             self.init_error = True
             print("Error: Screen is too small for this application")
@@ -442,6 +442,13 @@ class DateDrawer:
 
         month_dates = generate_dates("month")
 
+        compact_column_size = int(self.maxx / 5)
+        if compact_column_size >= 20:
+            compact_column_size = 20
+            compact_column_text_len = compact_column_size - 2
+        else:
+            compact_column_text_len = compact_column_size - 1
+
         # TODO: show the last days of prev month and first days of next month
         #       if the first day is not monday and/or last day is not friday-sunday
         # TODO: make a single lecture selectable so we can show the full info
@@ -449,8 +456,7 @@ class DateDrawer:
         # TODO: do we need to support weekends?
 
         self.reset_xy()
-        self.draw_string(
-            f"{month_dates[0][0]} - {month_dates[len(month_dates) -1][0]}")
+        self.draw_string(f"{month_dates[0][0]} - {month_dates[-1][0]}")
 
         self.current_y = 2
         max_lines_week = 0
@@ -481,7 +487,7 @@ class DateDrawer:
             elif self.draw_link_list[ly][lx] != date:
                 highlight = False
 
-            self.current_x = self.column_size * week_day
+            self.current_x = compact_column_size * week_day
             if highlight:
                 self.turn_highlight_on()
             self.draw_string(date[:6])
@@ -494,14 +500,15 @@ class DateDrawer:
 
             for course in courses:
                 self.current_y += 1
-                self.draw_string(course.time.time, self.column_text_len)
-                self.current_y += 1
-                self.draw_string(course.name, self.column_text_len)
+                self.draw_string(
+                    f"{course.time.time[:2]} {course.name}",
+                    compact_column_text_len
+                )
 
-            self.current_y -= (cousers_len * 2)
+            self.current_y -= cousers_len
 
             if week_day == 4:  # Move to next week after friday
-                self.current_y += (max_lines_week * 2) + 2
+                self.current_y += max_lines_week + 2
                 max_lines_week = 0
                 draw_date_index += 1
 
