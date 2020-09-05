@@ -420,12 +420,15 @@ class DateDrawer:
 
             if highlight:
                 self.turn_highlight_on()
-            self.draw_string(f"  {date[:6]}")
+            self.draw_string(f"{date[:6]}")
             if highlight:
                 self.turn_highlight_off()
 
             self.current_y = 4
             courses = course_wrap(date)
+            if len(courses) == 0:
+                self.draw_string("No lectures!")
+
             for course in courses:
                 self.draw_string(course.time.time, self.column_text_len)
                 self.current_y += 1
@@ -461,7 +464,7 @@ class DateDrawer:
         self.draw_string(f"{month_dates[0][0]} - {month_dates[-1][0]}")
 
         self.current_y = 2
-        max_lines_week = 0
+        max_lines_week = 1  # There is atleast the "No lectures!" line
         # Keep track where to put dates when initializeing draw_link_list
         draw_date_index = 0
         for _date in month_dates:
@@ -496,9 +499,14 @@ class DateDrawer:
             if highlight:
                 self.turn_highlight_off()
             courses = course_wrap(date)
-            cousers_len = len(courses)
-            if cousers_len > max_lines_week:
-                max_lines_week = cousers_len
+            courses_len = len(courses)
+            if courses_len == 0:
+                self.current_y += 1
+                self.draw_string("No lectures!")
+                self.current_y -= 1
+
+            if courses_len > max_lines_week:
+                max_lines_week = courses_len
 
             for course in courses:
                 self.current_y += 1
@@ -507,11 +515,11 @@ class DateDrawer:
                     compact_column_text_len
                 )
 
-            self.current_y -= cousers_len
+            self.current_y -= courses_len
 
             if week_day == 4:  # Move to next week after friday
                 self.current_y += max_lines_week + 2
-                max_lines_week = 0
+                max_lines_week = 1  # There is atleast the "No lectures!" line
                 draw_date_index += 1
 
         self.window.refresh()
