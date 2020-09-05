@@ -43,6 +43,21 @@ utu-lukkari
 sudo make uninstall
 ```
 
+### Termux
+
+If you are using [Termux](https://termux.com/) on android, you can install the program with the provided install script.
+
+```
+git clone https://github.com/Nykseli/utu-lukkari
+cd utu-lukkari
+./termux_install.sh install
+```
+
+You can update the program using the script
+```
+./termux_install.sh update
+```
+
 ## Navigation
 
 You can navigate the lukkari application with the following key commands.
