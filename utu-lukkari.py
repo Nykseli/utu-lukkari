@@ -502,7 +502,7 @@ class DateDrawer:
             courses_len = len(courses)
             if courses_len == 0:
                 self.current_y += 1
-                self.draw_string("No lectures!")
+                self.draw_string("No lectures!", compact_column_text_len)
                 self.current_y -= 1
 
             if courses_len > max_lines_week:
